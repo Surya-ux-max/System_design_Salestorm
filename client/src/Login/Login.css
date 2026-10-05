@@ -1,0 +1,122 @@
+/* Responsive container classes */
+.login-container {
+  display: flex;
+  min-height: 100vh;
+  background: #041009;
+  font-family: 'Inter', sans-serif;
+  color: #f1f5f9;
+}
+
+.login-left {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 56px;
+  background: linear-gradient(135deg, #041a0f 0%, #041009 100%);
+  border-right: 1px solid rgba(134, 239, 172, 0.1);
+  position: relative;
+  overflow: hidden;
+}
+
+.login-right {
+  flex: 1.2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 48px;
+  position: relative;
+  overflow: hidden;
+  background: radial-gradient(circle at 10% 20%, #04140b 0%, #062413 40%, #030e07 100%);
+}
+
+/* Custom decorative grids */
+.login-grid {
+  absolute: inset 0;
+  background-image: linear-gradient(to right, rgba(255,255,255,0.03) 1px, transparent 1px),
+                    linear-gradient(to bottom, rgba(255,255,255,0.03) 1px, transparent 1px);
+  background-size: 24px 24px;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+}
+
+/* Floating background blobs */
+.glow-blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+  opacity: 0.15;
+  mix-blend-mode: screen;
+  pointer-events: none;
+  will-change: transform;
+}
+
+.glow-blob-1 {
+  background: radial-gradient(circle, #22c55e 0%, transparent 70%);
+  width: 400px;
+  height: 400px;
+  top: -10%;
+  left: 10%;
+  animation: float-1 25s infinite alternate ease-in-out;
+}
+
+.glow-blob-2 {
+  background: radial-gradient(circle, #10b981 0%, transparent 70%);
+  width: 500px;
+  height: 500px;
+  bottom: -15%;
+  right: 15%;
+  animation: float-2 30s infinite alternate ease-in-out;
+}
+
+.glow-blob-3 {
+  background: radial-gradient(circle, #86efac 0%, transparent 70%);
+  width: 350px;
+  height: 350px;
+  top: 40%;
+  left: 45%;
+  animation: float-3 20s infinite alternate ease-in-out;
+}
+
+@keyframes float-1 {
+  0% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(60px, 40px) scale(1.1); }
+  100% { transform: translate(-30px, 80px) scale(0.95); }
+}
+
+@keyframes float-2 {
+  0% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(-80px, -60px) scale(0.9); }
+  100% { transform: translate(40px, 30px) scale(1.05); }
+}
+
+@keyframes float-3 {
+  0% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(50px, -40px) scale(1.15); }
+  100% { transform: translate(-50px, 20px) scale(0.85); }
+}
+
+/* Custom pulse for active states */
+@keyframes pulse-soft {
+  0%, 100% { opacity: 0.8; }
+  50% { opacity: 1; }
+}
+
+.animate-pulse-soft {
+  animation: pulse-soft 2s infinite ease-in-out;
+}
+
+/* Media Queries for responsive screens */
+@media (max-width: 768px) {
+  .login-left {
+    display: none !important;
+  }
+  .login-right {
+    flex: 1;
+    padding: 24px;
+  }
+}
