@@ -186,8 +186,17 @@ function SlotSection({ slot, items, slotOpen, onToggleSlot, onToggleItem, onRemo
                       <span style={{ fontWeight: 700, fontSize: 13, color: GDARK }}>{item.name}</span>
                       <span style={{ fontWeight: 900, fontSize: 14, color: slot.color }}>₹{item.price}</span>
                     </div>
-                    <div style={{ fontSize: 11, color: GMUTE, marginBottom: 8, display: 'flex', alignItems: 'center', gap: 3 }}>
-                      <Package size={11} /> {item.qty} left
+                    <div style={{ fontSize: 11, color: GMUTE, marginBottom: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+                        <Package size={11} /> <strong>{item.qty}</strong> available
+                      </span>
+                      {(item.reservedQuantity > 0 || item.soldQuantity > 0) && (
+                        <span style={{ fontSize: 10, color: '#6b7280' }}>
+                          {item.reservedQuantity > 0 ? `${item.reservedQuantity} hold` : ''}
+                          {item.reservedQuantity > 0 && item.soldQuantity > 0 ? ' · ' : ''}
+                          {item.soldQuantity > 0 ? `${item.soldQuantity} sold` : ''}
+                        </span>
+                      )}
                     </div>
                     <div style={{ display: 'flex', gap: 6 }}>
                       <button type="button" onClick={() => onToggleItem(slot.id, item.id)}

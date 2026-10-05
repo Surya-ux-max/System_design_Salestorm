@@ -7,9 +7,11 @@
     "dev": "node --watch src/index.js",
     "start": "node src/index.js",
     "reseed": "node reseed.js",
-    "build": "node --check src/index.js && node --check src/db/pool.js && node --check src/db/schema.js && node --check src/db/migrate.js && node --check src/db/seed.js && node --check src/routes/menu.js && node --check src/routes/orders.js && node --check src/routes/settings.js && node --check src/routes/auth.js && node --check src/routes/users.js && node --check src/utils/slots.js"
+    "build": "node --check src/index.js && node --check src/db/pool.js && node --check src/db/schema.js && node --check src/db/migrate.js && node --check src/db/seed.js && node --check src/routes/menu.js && node --check src/routes/orders.js && node --check src/routes/settings.js && node --check src/routes/auth.js && node --check src/routes/users.js && node --check src/routes/internal.js && node --check src/services/inventoryService.js && node --check src/services/paymentService.js && node --check src/services/orderService.js && node --check src/services/outboxService.js && node --check src/services/circuitBreaker.js && node --check src/workers/outboxWorker.js && node --check src/workers/reservationExpiryWorker.js",
+    "test": "node tests/validationSuite.js"
   },
   "dependencies": {
+    "amqplib": "^2.2.0",
     "bcryptjs": "^3.0.3",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",

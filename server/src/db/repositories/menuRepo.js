@@ -8,7 +8,10 @@ export function toClientMenuItem(o) {
     slot: o.slot,
     name: o.name,
     price: Number(o.price),
-    qty: Number(o.qty),
+    qty: Number(o.available_quantity !== undefined ? o.available_quantity : o.qty),
+    availableQuantity: Number(o.available_quantity !== undefined ? o.available_quantity : o.qty),
+    reservedQuantity: Number(o.reserved_quantity || 0),
+    soldQuantity: Number(o.sold_quantity || 0),
     active: Boolean(o.active),
     img: o.img || '',
     tag: o.tag || null,
@@ -23,20 +26,32 @@ export async function findMenuItemById(id, dbClient = null) {
   const parsedId = Number(id)
   if (isNaN(parsedId)) return null
   const runner = dbClient || { query }
-  const { rows } = await runner.query('SELECT * FROM menu_items WHERE id = $1 LIMIT 1', [parsedId])
+  const { rows } = await runner.query(
+    `SELECT m.*, i.available_quantity, i.reserved_quantity, i.sold_quantity
+     FROM menu_items m
+     LEFT JOIN inventory i ON i.product_id = m.id
+     WHERE m.id = $1 LIMIT 1`,
+    [parsedId]
+  )
   return rows[0] || null
 }
 
 export async function getMenuItems(slot = null) {
+  const baseQuery = `
+    SELECT m.*, i.available_quantity, i.reserved_quantity, i.sold_quantity
+    FROM menu_items m
+    LEFT JOIN inventory i ON i.product_id = m.id
+  `
+
   if (slot && ['breakfast', 'lunch', 'dinner'].includes(slot)) {
     const { rows } = await query(
-      'SELECT * FROM menu_items WHERE slot = $1 ORDER BY id ASC',
+      `${baseQuery} WHERE m.slot = $1 ORDER BY m.id ASC`,
       [slot]
     )
     return rows.map(toClientMenuItem)
   }
 
-  const { rows } = await query('SELECT * FROM menu_items ORDER BY id ASC')
+  const { rows } = await query(`${baseQuery} ORDER BY m.id ASC`)
   const grouped = { breakfast: [], lunch: [], dinner: [] }
   for (const r of rows) {
     const item = toClientMenuItem(r)
@@ -49,7 +64,11 @@ export async function getMenuItems(slot = null) {
 
 export async function getShopMenuItems(slot) {
   const { rows } = await query(
-    'SELECT * FROM menu_items WHERE slot = $1 AND active = true AND qty > 0 ORDER BY id ASC',
+    `SELECT m.*, i.available_quantity, i.reserved_quantity, i.sold_quantity
+     FROM menu_items m
+     JOIN inventory i ON i.product_id = m.id
+     WHERE m.slot = $1 AND m.active = true AND i.available_quantity > 0
+     ORDER BY m.id ASC`,
     [slot]
   )
   return rows.map(toClientMenuItem)
@@ -73,7 +92,18 @@ export async function createMenuItem({ slot, name, price, qty, active = true, im
       createdBy ? Number(createdBy) : null,
     ]
   )
-  return toClientMenuItem(rows[0])
+  const item = rows[0]
+
+  // Ensure inventory record exists
+  await query(
+    `INSERT INTO inventory (product_id, available_quantity, reserved_quantity, sold_quantity, version, updated_at)
+     VALUES ($1, $2, 0, 0, 1, NOW())
+     ON CONFLICT (product_id) DO UPDATE
+     SET available_quantity = $2, updated_at = NOW()`,
+    [item.id, Number(qty)]
+  )
+
+  return toClientMenuItem({ ...item, available_quantity: Number(qty) })
 }
 
 export async function updateMenuItem(id, patch) {
@@ -105,17 +135,27 @@ export async function updateMenuItem(id, patch) {
     }
   }
 
-  if (updates.length === 0) {
-    const existing = await findMenuItemById(parsedId)
-    return toClientMenuItem(existing)
+  if (updates.length > 0) {
+    updates.push(`updated_at = NOW()`)
+    values.push(parsedId)
+
+    const sql = `UPDATE menu_items SET ${updates.join(', ')} WHERE id = $${index} RETURNING *`
+    await query(sql, values)
   }
 
-  updates.push(`updated_at = NOW()`)
-  values.push(parsedId)
+  // If qty was explicitly updated by admin, sync available_quantity
+  if (patch.qty !== undefined) {
+    await query(
+      `INSERT INTO inventory (product_id, available_quantity, reserved_quantity, sold_quantity, version, updated_at)
+       VALUES ($1, $2, 0, 0, 1, NOW())
+       ON CONFLICT (product_id) DO UPDATE
+       SET available_quantity = $2, updated_at = NOW()`,
+      [parsedId, Number(patch.qty)]
+    )
+  }
 
-  const sql = `UPDATE menu_items SET ${updates.join(', ')} WHERE id = $${index} RETURNING *`
-  const { rows } = await query(sql, values)
-  return toClientMenuItem(rows[0] || null)
+  const updatedDoc = await findMenuItemById(parsedId)
+  return toClientMenuItem(updatedDoc)
 }
 
 export async function deleteMenuItem(id) {
@@ -128,16 +168,4 @@ export async function deleteMenuItem(id) {
 export async function countMenuItems() {
   const { rows } = await query('SELECT COUNT(*)::int AS count FROM menu_items')
   return rows[0]?.count || 0
-}
-
-export async function decrementMenuItemQty(id, count, dbClient = null) {
-  const runner = dbClient || { query }
-  const { rows } = await runner.query(
-    `UPDATE menu_items
-     SET qty = GREATEST(0, qty - $1), updated_at = NOW()
-     WHERE id = $2
-     RETURNING *`,
-    [Number(count), Number(id)]
-  )
-  return rows[0] || null
 }

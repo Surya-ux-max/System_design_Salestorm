@@ -75,7 +75,7 @@ export default function OrdersTab({ orders, onServe }) {
 
                 {/* action */}
                 <div>
-                  {order.status === 'Pending' && (
+                  {order.status !== 'Served' && order.status !== 'SERVED' ? (
                     <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
                       onClick={() => serve(order.token)}
                       style={{
@@ -84,8 +84,12 @@ export default function OrdersTab({ orders, onServe }) {
                         color: '#fff', fontWeight: 800, fontSize: 12, cursor: 'pointer',
                         boxShadow: '0 3px 10px #16a34a30',
                       }}>
-                      Done
+                      Serve
                     </motion.button>
+                  ) : (
+                    <span style={{ fontSize: 11, fontWeight: 800, color: G, background: GLIGHT, padding: '4px 10px', borderRadius: 50 }}>
+                      Served
+                    </span>
                   )}
                 </div>
               </div>
