@@ -1,8 +1,20 @@
 import 'dotenv/config'
-import { connectDB } from './src/db.js'
-import { forceSeed } from './src/seed.js'
+import { migrate } from './src/db/migrate.js'
+import { forceSeed } from './src/db/seed.js'
+import { pool } from './src/db/pool.js'
 
-connectDB(process.env.MONGODB_URI)
-  .then(() => forceSeed())
-  .then(() => { console.log('Done'); process.exit(0) })
-  .catch(e => { console.error(e); process.exit(1) })
+async function run() {
+  try {
+    await migrate()
+    await forceSeed()
+    console.log('✅ Reseed completed successfully')
+    await pool.end()
+    process.exit(0)
+  } catch (e) {
+    console.error('❌ Reseed failed:', e)
+    await pool.end()
+    process.exit(1)
+  }
+}
+
+run()

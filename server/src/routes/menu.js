@@ -1,45 +1,27 @@
 import { Router } from 'express'
-import mongoose from 'mongoose'
-import { MenuItem } from '../db.js'
+import {
+  getMenuItems,
+  getShopMenuItems,
+  createMenuItem,
+  updateMenuItem,
+  deleteMenuItem,
+} from '../db/repositories/menuRepo.js'
 import { getCurrentSlotId } from '../utils/slots.js'
 
 const router = Router()
 
-function toClientItem(o) {
-  return {
-    id: (o._id ?? o.id)?.toString?.() ?? String(o.id),
-    slot: o.slot,
-    name: o.name,
-    price: o.price,
-    qty: o.qty,
-    active: o.active,
-    img: o.img,
-    tag: o.tag || null,
-    tagColor: o.tagColor || '',
-    desc: o.desc || '',
-  }
-}
-
+/* GET /api/menu */
 router.get('/', async (req, res, next) => {
   try {
     const { slot } = req.query
-    const filter = {}
-    if (slot && ['breakfast', 'lunch', 'dinner'].includes(slot)) filter.slot = slot
-    const items = await MenuItem.find(filter).sort({ createdAt: 1 }).lean()
-    if (slot) {
-      return res.json(items.map((o) => toClientItem(o)))
-    }
-    const grouped = { breakfast: [], lunch: [], dinner: [] }
-    for (const o of items) {
-      const c = toClientItem(o)
-      if (grouped[o.slot]) grouped[o.slot].push(c)
-    }
-    res.json(grouped)
+    const result = await getMenuItems(slot)
+    res.json(result)
   } catch (e) {
     next(e)
   }
 })
 
+/* GET /api/menu/shop */
 router.get('/shop', async (req, res, next) => {
   try {
     let slot = req.query.slot
@@ -48,6 +30,7 @@ router.get('/shop', async (req, res, next) => {
     } else if (!['breakfast', 'lunch', 'dinner'].includes(slot)) {
       return res.status(400).json({ error: 'Invalid slot' })
     }
+
     if (!slot) {
       return res.json({
         slot: null,
@@ -55,16 +38,18 @@ router.get('/shop', async (req, res, next) => {
         message: 'No meal window is active right now. Try again during breakfast, lunch, or dinner.',
       })
     }
-    const items = await MenuItem.find({ slot, active: true, qty: { $gt: 0 } }).sort({ createdAt: 1 }).lean()
+
+    const items = await getShopMenuItems(slot)
     res.json({
       slot,
-      items: items.map((o) => toClientItem(o)),
+      items,
     })
   } catch (e) {
     next(e)
   }
 })
 
+/* POST /api/menu */
 router.post('/', async (req, res, next) => {
   try {
     const { slot, name, price, qty, active, img, tag, tagColor, desc } = req.body
@@ -74,52 +59,62 @@ router.post('/', async (req, res, next) => {
     if (!name || price == null || qty == null) {
       return res.status(400).json({ error: 'name, price, and qty are required' })
     }
-    const doc = await MenuItem.create({
+
+    const item = await createMenuItem({
       slot,
-      name: String(name),
-      price: Number(price),
-      qty: Number(qty),
-      active: active !== false,
-      img: img || '',
-      tag: tag || null,
-      tagColor: tagColor || '',
-      desc: desc || '',
+      name,
+      price,
+      qty,
+      active,
+      img,
+      tag,
+      tagColor,
+      desc,
     })
-    res.status(201).json(toClientItem(doc.toObject()))
+
+    res.status(201).json(item)
   } catch (e) {
     next(e)
   }
 })
 
+/* PATCH /api/menu/:id */
 router.patch('/:id', async (req, res, next) => {
   try {
     const { id } = req.params
-    if (!mongoose.isValidObjectId(id)) {
+    const parsedId = Number(id)
+    if (isNaN(parsedId)) {
       return res.status(400).json({ error: 'Invalid id' })
     }
+
     const allowed = ['name', 'price', 'qty', 'active', 'img', 'slot', 'tag', 'tagColor', 'desc']
     const patch = {}
     for (const k of allowed) {
       if (k in req.body) patch[k] = req.body[k]
     }
+
     if (patch.slot && !['breakfast', 'lunch', 'dinner'].includes(patch.slot)) {
       return res.status(400).json({ error: 'Invalid slot' })
     }
-    const doc = await MenuItem.findByIdAndUpdate(id, patch, { new: true })
+
+    const doc = await updateMenuItem(parsedId, patch)
     if (!doc) return res.status(404).json({ error: 'Menu item not found' })
-    res.json(toClientItem(doc.toObject()))
+    res.json(doc)
   } catch (e) {
     next(e)
   }
 })
 
+/* DELETE /api/menu/:id */
 router.delete('/:id', async (req, res, next) => {
   try {
     const { id } = req.params
-    if (!mongoose.isValidObjectId(id)) {
+    const parsedId = Number(id)
+    if (isNaN(parsedId)) {
       return res.status(400).json({ error: 'Invalid id' })
     }
-    const doc = await MenuItem.findByIdAndDelete(id)
+
+    const doc = await deleteMenuItem(parsedId)
     if (!doc) return res.status(404).json({ error: 'Menu item not found' })
     res.status(204).send()
   } catch (e) {
