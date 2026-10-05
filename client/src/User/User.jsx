@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, lazy, Suspense } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { ShoppingCart, Plus, Minus, X, ArrowLeft, Sparkles, Zap, CheckCircle2, Copy, Download } from 'lucide-react'
+import { ShoppingCart, Plus, Minus, X, ArrowLeft, Sparkles, Zap, CheckCircle2, Copy, Download, XCircle } from 'lucide-react'
 import { QRCodeSVG } from 'qrcode.react'
 import html2canvas from 'html2canvas'
 import ClickSpark from './ClickSpark'
@@ -33,6 +33,22 @@ function makeUpiUrl(amount, token) {
 /* ── Bill Screen ────────────────────────────────────────────── */
 function BillScreen({ token, total, slot, items, lines, time, onBack }) {
   const billRef = useRef(null)
+  const [cancelled, setCancelled] = useState(false)
+  const [cancelling, setCancelling] = useState(false)
+
+  const handleCancelOrder = async () => {
+    if (!window.confirm('Cancel this order? Any reserved or prepared food items will be returned to the canteen.')) return
+    setCancelling(true)
+    try {
+      await api.cancelOrder(token, { reason: 'Student cancelled from bill screen' })
+      setCancelled(true)
+      window.alert('Order cancelled. Items have been released back to stock.')
+    } catch (e) {
+      window.alert(e.message || 'Could not cancel order')
+    } finally {
+      setCancelling(false)
+    }
+  }
 
   const downloadBill = async () => {
     if (!billRef.current) return
@@ -132,6 +148,12 @@ function BillScreen({ token, total, slot, items, lines, time, onBack }) {
             style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '12px 24px', borderRadius: 50, border: 'none', background: G, color: '#fff', fontWeight: 800, fontSize: 14, cursor: 'pointer', boxShadow: `0 4px 20px ${G}50` }}>
             <Download size={16} /> Download Bill
           </motion.button>
+          {!cancelled && (
+            <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={handleCancelOrder}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '12px 24px', borderRadius: 50, border: '1px solid rgba(239,68,68,0.4)', background: 'rgba(239,68,68,0.15)', color: '#fca5a5', fontWeight: 800, fontSize: 14, cursor: cancelling ? 'not-allowed' : 'pointer' }}>
+              <XCircle size={16} /> {cancelling ? 'Cancelling…' : 'Cancel Order'}
+            </motion.button>
+          )}
           <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={onBack}
             style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '12px 24px', borderRadius: 50, border: `1px solid ${GMID}40`, background: 'rgba(22,163,74,0.12)', color: GMID, fontWeight: 800, fontSize: 14, cursor: 'pointer' }}>
             <ArrowLeft size={16} /> New Order
@@ -148,6 +170,7 @@ function TokenScreen({ token, total, slot, items, lines, time, onBack }) {
   const [copied,    setCopied]    = useState(false)
   const [paid,      setPaid]      = useState(false)
   const [confirming,setConfirming]= useState(false)
+  const [cancelling,setCancelling]= useState(false)
   const upiUrl = makeUpiUrl(total, token)
 
   if (paid) return <BillScreen token={token} total={total} slot={slot} items={items} lines={lines} time={time} onBack={onBack} />
@@ -163,6 +186,20 @@ function TokenScreen({ token, total, slot, items, lines, time, onBack }) {
     try { await api.confirmPayment(token, { status: 'Paid' }) } catch (_) {}
     setConfirming(false)
     setPaid(true)
+  }
+
+  const handleCancelToken = async () => {
+    if (!window.confirm('Cancel this order? Your reserved items will be released back to the canteen.')) return
+    setCancelling(true)
+    try {
+      await api.cancelOrder(token, { reason: 'Student cancelled before payment' })
+      window.alert('Order cancelled. Your reserved items have been released.')
+      onBack()
+    } catch (e) {
+      window.alert(e.message || 'Could not cancel order')
+    } finally {
+      setCancelling(false)
+    }
   }
 
   return (
@@ -248,6 +285,10 @@ function TokenScreen({ token, total, slot, items, lines, time, onBack }) {
           <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={handlePaid}
             style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '12px 28px', borderRadius: 50, border: 'none', background: G, color: '#fff', fontWeight: 800, fontSize: 14, cursor: confirming ? 'not-allowed' : 'pointer', boxShadow: `0 4px 20px ${G}50`, opacity: confirming ? 0.7 : 1 }}>
             <CheckCircle2 size={16} /> {confirming ? 'Confirming…' : "I've Paid — Show Bill"}
+          </motion.button>
+          <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={handleCancelToken}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '12px 24px', borderRadius: 50, border: '1px solid rgba(239,68,68,0.4)', background: 'rgba(239,68,68,0.15)', color: '#fca5a5', fontWeight: 800, fontSize: 14, cursor: cancelling ? 'not-allowed' : 'pointer' }}>
+            <XCircle size={16} /> {cancelling ? 'Cancelling…' : 'Cancel Order'}
           </motion.button>
           <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={onBack}
             style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '12px 28px', borderRadius: 50, border: `1px solid ${GMID}40`, background: 'rgba(22,163,74,0.15)', color: GMID, fontWeight: 800, fontSize: 14, cursor: 'pointer' }}>

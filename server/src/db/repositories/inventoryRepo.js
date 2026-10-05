@@ -127,6 +127,35 @@ export async function releaseReservedStock(productId, quantity, dbClient) {
   return rows[0] || null
 }
 
+/**
+ * On order cancellation: return from sold_quantity back to available_quantity
+ */
+export async function returnSoldStock(productId, quantity, dbClient) {
+  const parsedId = Number(productId)
+  const qty = Number(quantity)
+
+  const { rows } = await dbClient.query(
+    `UPDATE inventory
+     SET sold_quantity      = GREATEST(0, sold_quantity - $1),
+         available_quantity = available_quantity + $1,
+         version            = version + 1,
+         updated_at         = NOW()
+     WHERE product_id = $2
+     RETURNING *`,
+    [qty, parsedId]
+  )
+
+  // Sync menu_items qty
+  if (rows[0]) {
+    await dbClient.query(
+      'UPDATE menu_items SET qty = $1, updated_at = NOW() WHERE id = $2',
+      [rows[0].available_quantity, parsedId]
+    )
+  }
+
+  return rows[0] || null
+}
+
 export async function resetInventoryStock(productId, totalQuantity, dbClient = null) {
   const runner = dbClient || { query }
   const parsedId = Number(productId)

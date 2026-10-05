@@ -3,7 +3,7 @@ import { motion } from 'framer-motion'
 import { ClipboardList, Clock } from 'lucide-react'
 import { G, GDARK, GLIGHT, GMID, GMUTE, stagger, fadeUp, MEAL_SLOTS } from './adminData'
 
-export default function OrdersTab({ orders, onServe }) {
+export default function OrdersTab({ orders, onServe, onCancel }) {
   const [filter, setFilter] = useState('all')
 
   const serve = (token) => onServe(token)
@@ -74,18 +74,32 @@ export default function OrdersTab({ orders, onServe }) {
                 </div>
 
                 {/* action */}
-                <div>
-                  {order.status !== 'Served' && order.status !== 'SERVED' ? (
-                    <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
-                      onClick={() => serve(order.token)}
-                      style={{
-                        padding: '9px 20px', borderRadius: 50, border: 'none',
-                        background: `linear-gradient(135deg, ${G}, #15803d)`,
-                        color: '#fff', fontWeight: 800, fontSize: 12, cursor: 'pointer',
-                        boxShadow: '0 3px 10px #16a34a30',
-                      }}>
-                      Serve
-                    </motion.button>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  {order.status !== 'Served' && order.status !== 'SERVED' && order.status !== 'CANCELLED' ? (
+                    <>
+                      <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
+                        onClick={() => serve(order.token)}
+                        style={{
+                          padding: '8px 18px', borderRadius: 50, border: 'none',
+                          background: `linear-gradient(135deg, ${G}, #15803d)`,
+                          color: '#fff', fontWeight: 800, fontSize: 12, cursor: 'pointer',
+                          boxShadow: '0 3px 10px #16a34a30',
+                        }}>
+                        Serve
+                      </motion.button>
+                      <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
+                        onClick={() => onCancel && onCancel(order.token)}
+                        style={{
+                          padding: '8px 14px', borderRadius: 50, border: '1px solid #fca5a5',
+                          background: '#fef2f2', color: '#dc2626', fontWeight: 700, fontSize: 11, cursor: 'pointer',
+                        }}>
+                        Cancel
+                      </motion.button>
+                    </>
+                  ) : order.status === 'CANCELLED' ? (
+                    <span style={{ fontSize: 11, fontWeight: 800, color: '#dc2626', background: '#fee2e2', padding: '4px 10px', borderRadius: 50 }}>
+                      Cancelled
+                    </span>
                   ) : (
                     <span style={{ fontSize: 11, fontWeight: 800, color: G, background: GLIGHT, padding: '4px 10px', borderRadius: 50 }}>
                       Served

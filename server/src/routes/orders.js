@@ -5,7 +5,7 @@ import { findPaymentByOrderId } from '../db/repositories/paymentRepo.js'
 import { getSettings } from '../db/repositories/settingsRepo.js'
 import { isWorkingDayNow } from '../utils/slots.js'
 import { reserveItems } from '../services/inventoryService.js'
-import { createOrderFromReservation, advanceOrderStatus } from '../services/orderService.js'
+import { createOrderFromReservation, advanceOrderStatus, cancelOrder } from '../services/orderService.js'
 import { processPayment } from '../services/paymentService.js'
 import {
   getIdempotencyRecord,
@@ -150,16 +150,44 @@ router.patch('/:token/payment', async (req, res, next) => {
   }
 })
 
+/* POST /api/orders/:token/cancel — Cancel Order & Restore Inventory */
+router.post('/:token/cancel', async (req, res, next) => {
+  try {
+    const { reason } = req.body || {}
+    const cancelledOrder = await cancelOrder(req.params.token, {
+      reason: reason || 'Customer requested cancellation',
+      cancelledBy: req.user?.id || null,
+    })
+    res.json({
+      ok: true,
+      message: 'Order cancelled successfully. Inventory has been returned.',
+      order: cancelledOrder,
+    })
+  } catch (e) {
+    res.status(400).json({ error: e.message })
+  }
+})
+
 /* PATCH /api/orders/:token — Order Lifecycle Transition */
 router.patch('/:token', async (req, res, next) => {
   try {
-    const { status } = req.body
+    const { status, reason } = req.body
     if (!status) {
       return res.status(400).json({ error: 'Status is required' })
     }
 
-    // Normalize legacy 'Served'
-    const targetStatus = status === 'Served' ? 'SERVED' : status
+    // Normalize legacy 'Served' or 'Cancelled'
+    let targetStatus = status
+    if (status.toLowerCase() === 'served') targetStatus = 'SERVED'
+    if (status.toLowerCase() === 'cancelled') targetStatus = 'CANCELLED'
+
+    if (targetStatus === 'CANCELLED') {
+      const cancelledOrder = await cancelOrder(req.params.token, {
+        reason: reason || 'Order cancelled via status update',
+        cancelledBy: req.user?.id || null,
+      })
+      return res.json(cancelledOrder)
+    }
 
     const updatedOrder = await advanceOrderStatus(req.params.token, targetStatus, req.user?.id)
     if (!updatedOrder) {
@@ -168,7 +196,7 @@ router.patch('/:token', async (req, res, next) => {
 
     res.json(updatedOrder)
   } catch (e) {
-    next(e)
+    res.status(400).json({ error: e.message })
   }
 })
 

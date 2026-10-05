@@ -116,6 +116,16 @@ export default function Admin() {
     setOrders((prev) => prev.map((o) => (o.token === token ? { ...o, status: 'Served' } : o)))
   }
 
+  const onCancelOrder = async (token) => {
+    if (!window.confirm(`Cancel order ${token}? Any reserved or sold items will be returned to canteen stock.`)) return
+    try {
+      await api.cancelOrder(token, { reason: 'Staff cancelled order' })
+      setOrders((prev) => prev.map((o) => (o.token === token ? { ...o, status: 'CANCELLED' } : o)))
+    } catch (e) {
+      window.alert(e.message || 'Could not cancel order')
+    }
+  }
+
   const today = getNow().toLocaleDateString('en-IN', { weekday: 'long' })
   const isWorkingDay = workingDays.includes(today)
 
@@ -138,7 +148,7 @@ export default function Admin() {
           </>
         )
       case 'orders':
-        return <OrdersTab orders={orders} onServe={onServe} />
+        return <OrdersTab orders={orders} onServe={onServe} onCancel={onCancelOrder} />
       default:
         return null
     }

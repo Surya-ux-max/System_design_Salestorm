@@ -39,6 +39,7 @@ export const api = {
   patchSettings: (body) => req('/api/settings', { method: 'PATCH', body: JSON.stringify(body) }),
   getOrders: () => req('/api/orders'),
   patchOrder: (token, body) => req(`/api/orders/${encodeURIComponent(token)}`, { method: 'PATCH', body: JSON.stringify(body) }),
+  cancelOrder: (token, body = {}) => req(`/api/orders/${encodeURIComponent(token)}/cancel`, { method: 'POST', body: JSON.stringify(body) }),
   createOrder:     (body)        => req('/api/orders', { method: 'POST', body: JSON.stringify(body) }),
   confirmPayment:  (token, body) => req(`/api/orders/${encodeURIComponent(token)}/payment`, { method: 'PATCH', body: JSON.stringify(body) }),
   login:           (body)        => req('/api/auth/login', { method: 'POST', body: JSON.stringify(body) }),

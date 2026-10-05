@@ -26,7 +26,7 @@ import {
   releaseExpiredReservations,
 } from '../src/services/inventoryService.js'
 import { processPayment } from '../src/services/paymentService.js'
-import { createOrderFromReservation } from '../src/services/orderService.js'
+import { createOrderFromReservation, cancelOrder } from '../src/services/orderService.js'
 import { circuitBreaker } from '../src/services/circuitBreaker.js'
 import { processOutboxBatch } from '../src/services/outboxService.js'
 
@@ -392,6 +392,57 @@ async function runTestSuite() {
     }
   } catch (err) {
     logFailure('TEST 7: Zero Stock Rejection', err.message)
+    failedCount++
+  }
+
+  // --------------------------------------------------------------------------
+  // TEST 8: Order Cancellation & Inventory Stock Reversal
+  // --------------------------------------------------------------------------
+  try {
+    console.log('\n--- Running TEST 8: Order Cancellation & Inventory Stock Reversal ---')
+    await resetInventoryStock(TEST_PRODUCT_ID, 10)
+
+    // 1. Order and confirm 3 items
+    const res = await reserveItems({
+      items: [{ productId: TEST_PRODUCT_ID, qty: 3 }],
+      slot: 'breakfast',
+    })
+    const orderRes = await createOrderFromReservation({
+      reservationId: res.reservationId,
+      slot: 'breakfast',
+      lines: res.lines,
+      total: res.total,
+    })
+
+    // Pay for order (moves reserved -> sold)
+    await processPayment({
+      token: orderRes.order.token,
+      forceOutcome: 'SUCCESS',
+      txnRef: 'TXN_TO_CANCEL',
+    })
+
+    const invBeforeCancel = await getInventoryByProductId(TEST_PRODUCT_ID)
+
+    // 2. Cancel the order
+    const cancelledOrder = await cancelOrder(orderRes.order.token, { reason: 'Student changed mind' })
+    const invAfterCancel = await getInventoryByProductId(TEST_PRODUCT_ID)
+    const payment = await findPaymentByToken(orderRes.order.token)
+
+    // 3. Verify invariants
+    const stockRestored = invAfterCancel.available_quantity === 10 && invAfterCancel.sold_quantity === 0
+    const statusCorrect = cancelledOrder.status === 'CANCELLED' && payment.status === 'Refunded'
+
+    if (stockRestored && statusCorrect) {
+      logSuccess(
+        'TEST 8: Order Cancellation & Stock Reversal',
+        `Order ${cancelledOrder.token} status = CANCELLED. Payment = Refunded. Sold quantity reversed to 0, available stock restored from ${invBeforeCancel.available_quantity} to ${invAfterCancel.available_quantity}.`
+      )
+      passedCount++
+    } else {
+      throw new Error(`Cancellation stock reversal failed! Available: ${invAfterCancel.available_quantity}, Sold: ${invAfterCancel.sold_quantity}`)
+    }
+  } catch (err) {
+    logFailure('TEST 8: Order Cancellation', err.message)
     failedCount++
   }
 
